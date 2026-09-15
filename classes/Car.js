@@ -10,6 +10,7 @@ class Car {
     this.maxSpeed = maxSpeed;
     this.friction = 0.05;
     this.angle = 0;
+    this.crashed = false;
 
     this.sensor = new Sensor(this);
 
@@ -17,8 +18,12 @@ class Car {
   }
 
   update(roadBorders) {
+    // No reason to update, when crashed
+    if (this.crashed) return;
+
     this.#move();
     this.polygon = this.#createPolygon();
+    this.crashed = this.#assesDamage(roadBorders);
 
     if (this.sensor) {
       this.sensor.update(roadBorders);
@@ -26,8 +31,12 @@ class Car {
       const offsets = this.sensor.readings.map((s) =>
         s == null ? 0 : 1 - s.offset,
       );
+    }
+  }
 
-      console.log(offsets);
+  #assesDamage(roadBorders) {
+    for (let i = 0; i < roadBorders.length; i++) {
+      if (polysIntersect(this.polygon, roadBorders[i])) return true;
     }
   }
 
