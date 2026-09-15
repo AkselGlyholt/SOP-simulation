@@ -13,7 +13,7 @@ class Car {
     this.crashed = false;
 
     this.sensor = new Sensor(this);
-
+    this.brain = new NeuralNetwork([this.sensor.rayCount, 6, 4]);
     this.controls = new Controls();
   }
 
@@ -31,6 +31,13 @@ class Car {
       const offsets = this.sensor.readings.map((s) =>
         s == null ? 0 : 1 - s.offset,
       );
+
+      const outputs = this.brain.forward(offsets);
+
+      this.controls.forward = outputs[0];
+      this.controls.left = outputs[1];
+      this.controls.right = outputs[2];
+      this.controls.reverse = outputs[3];
     }
   }
 

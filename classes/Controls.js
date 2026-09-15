@@ -5,7 +5,7 @@ class Controls {
     this.right = false;
     this.reverse = false;
 
-    this.#addKeyboardListeners();
+    //this.#addKeyboardListeners();
   }
 
   #addKeyboardListeners() {
