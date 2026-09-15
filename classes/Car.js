@@ -11,12 +11,24 @@ class Car {
     this.friction = 0.05;
     this.angle = 0;
 
+    this.sensor = new Sensor(this);
+
     this.controls = new Controls();
   }
 
-  update() {
+  update(roadBorders) {
     this.#move();
     this.polygon = this.#createPolygon();
+
+    if (this.sensor) {
+      this.sensor.update(roadBorders);
+
+      const offsets = this.sensor.readings.map((s) =>
+        s == null ? 0 : 1 - s.offset,
+      );
+
+      console.log(offsets);
+    }
   }
 
   #createPolygon() {
@@ -80,5 +92,9 @@ class Car {
     }
 
     ctx.fill();
+
+    if (this.sensor) {
+      this.sensor.draw(ctx);
+    }
   }
 }

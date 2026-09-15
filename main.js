@@ -31,7 +31,7 @@ function animate(time) {
   simCanvas.height = window.innerHeight;
 
   // Update car position
-  car.update();
+  car.update(road.borders);
 
   // Position camera acording to car
   simCtx.save();
