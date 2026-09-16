@@ -1,50 +1,100 @@
 class Car {
   constructor(x, y, width, height, maxSpeed = 3) {
-    this.x = x;
-    this.y = y;
+    this.startX = x;
+    this.startY = y;
     this.width = width;
     this.height = height;
-
-    this.speed = 0;
-    this.acceleration = 0.2;
     this.maxSpeed = maxSpeed;
+
+    this.acceleration = 0.2;
     this.friction = 0.05;
-    this.angle = 0;
-    this.crashed = false;
 
     this.sensor = new Sensor(this);
-    this.brain = new NeuralNetwork([this.sensor.rayCount, 6, 4]);
     this.controls = new Controls();
+
+    // NB: intet "brain" her længere - DQNAgent ejer netværket og
+    // fortæller bilen hvad den skal gøre via applyAction().
+
+    this.reset();
   }
 
+  /**
+   * Nulstiller bilen til udgangspositionen - kaldes ved starten af hver
+   * episode (både den allerførste, og efter hvert crash).
+   */
+  reset() {
+    this.x = this.startX;
+    this.y = this.startY;
+    this.speed = 0;
+    this.angle = 0;
+    this.crashed = false;
+    this.polygon = this.#createPolygon();
+
+    // Bruges til at beregne per-frame reward (fremdrift siden sidste frame)
+    this.previousY = this.y;
+  }
+
+  /**
+   * Sætter styresignalerne ud fra en handling valgt af agenten.
+   * @param {{forward:boolean, left:boolean, right:boolean, reverse:boolean}} action
+   */
+  applyAction(action) {
+    this.controls.forward = action.forward;
+    this.controls.left = action.left;
+    this.controls.right = action.right;
+    this.controls.reverse = action.reverse;
+  }
+
+  /**
+   * Kør simulationen ét tidsskridt frem. Returnerer IKKE state/reward selv -
+   * det håndteres af trænings-loopet via getState()/getReward(), så
+   * rækkefølgen (state -> action -> step -> reward) er tydelig ét sted.
+   */
   update(roadBorders) {
-    // No reason to update, when crashed
     if (this.crashed) return;
+
+    this.previousY = this.y;
 
     this.#move();
     this.polygon = this.#createPolygon();
     this.crashed = this.#assesDamage(roadBorders);
 
-    if (this.sensor) {
-      this.sensor.update(roadBorders);
+    this.sensor.update(roadBorders);
+  }
 
-      const offsets = this.sensor.readings.map((s) =>
-        s == null ? 0 : 1 - s.offset,
-      );
+  /**
+   * State-vektor til netværket: 7 sensor-aflæsninger (0 = intet i sigte,
+   * 1 = forhindring lige op ad bilen) + normaliseret hastighed.
+   * @returns {number[]} længde 8
+   */
+  getState() {
+    const sensorReadings = this.sensor.readings.map((reading) =>
+      reading == null ? 0 : 1 - reading.offset,
+    );
+    const normalizedSpeed = this.speed / this.maxSpeed; // typisk i [-0.25, 1]
+    return [...sensorReadings, normalizedSpeed];
+  }
 
-      const outputs = this.brain.forward(offsets);
+  /**
+   * Reward for det frame der lige er kørt. Kald EFTER update().
+   * v1: fremdrift (hvor langt op ad vejen bilen kom) minus stor straf ved crash.
+   */
+  getReward() {
+    if (this.crashed) return -100;
+    // Bilen bevæger sig i negativ y-retning når den kører fremad (angle=0),
+    // så fremdrift = hvor meget y er faldet siden sidste frame.
+    return this.previousY - this.y;
+  }
 
-      this.controls.forward = outputs[0];
-      this.controls.left = outputs[1];
-      this.controls.right = outputs[2];
-      this.controls.reverse = outputs[3];
-    }
+  isDone() {
+    return this.crashed;
   }
 
   #assesDamage(roadBorders) {
     for (let i = 0; i < roadBorders.length; i++) {
       if (polysIntersect(this.polygon, roadBorders[i])) return true;
     }
+    return false;
   }
 
   #createPolygon() {

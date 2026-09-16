@@ -36,4 +36,8 @@ button:hover {
   position: fixed;
   top: 12px;
   left: 12px;
+  color: white;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
+  white-space: pre-line;
 }
